@@ -1,0 +1,110 @@
+---
+- hosts: appserver
+  tasks:
+  - name: setup tomcat
+    block:
+    - name: Create the folders for Java and Tomcat
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "/home/ec2-user/java"
+        - "/home/ec2-user/tomcat"
+        - "/home/ec2-user/setup"
+
+    - name: Download the java and tomcat zips
+      get_url:
+        url: "{{ item }}"
+        dest: "/home/ec2-user/setup"
+      with_items:
+        - "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jre_x64_linux_hotspot_11.0.7_10.tar.gz"
+        - "https://mirrors.estointernet.in/apache/tomcat/tomcat-9/v9.0.36/bin/apache-tomcat-9.0.36.tar.gz"
+
+    - name: Extract the Java zip
+      unarchive:
+        src: "/home/ec2-user/setup/OpenJDK11U-jre_x64_linux_hotspot_11.0.7_10.tar.gz"
+        dest: "/home/ec2-user/java"
+        remote_src: yes
+        extra_opts:
+          - --strip-components=1
+
+    - name: Extract the Tomcat zip
+      unarchive:
+        src: "/home/ec2-user/setup/apache-tomcat-9.0.36.tar.gz"
+        dest: "/home/ec2-user/tomcat"
+        remote_src: yes
+        extra_opts:
+          - --strip-components=1
+
+    - name: Creating the users
+      template: 
+         src: "templates/tomcat-users.xml"
+         dest: "/home/ec2-user/tomcat/conf/tomcat-users.xml"
+
+    - name: copy the server.xml
+      template:
+         src: "templates/server.xml"
+         dest: "/home/ec2-user/tomcat/conf/server.xml"
+
+    - name: Copy the manager context file
+      template:
+         src: "templates/context.xml"
+         dest: "/home/ec2-user/tomcat/webapps/manager/META-INF/context.xml"
+
+    - name: Deploying the sample war file
+      copy:
+        src: "files/ravi.war"
+        dest: "/home/ec2-user/tomcat/webapps"
+
+    - name: Adding export variables in .bash_profile
+      lineinfile:
+        path: ~/.bashrc
+        insertbefore: EOF
+        line: "{{ item }}"
+      with_items:
+        - 'export JAVA_HOME=/home/ec2-user/java'
+        - 'export PATH=$JAVA_HOME/bin:$PATH'
+        - 'export JAVA_OPTS="-Xms256m -Xmx512m"'
+
+    tags:
+     - never
+     - install-tomcat
+     - install-all
+
+  - name: Starting the Tomcat Server
+    shell: |
+          source ~/.bashrc
+          nohup ./catalina.sh run >> ../logs/ravi.log &
+    args:
+      chdir: "/home/ec2-user/tomcat/bin"
+    tags:
+     - never
+     - start-tomcat
+     - install-all
+
+
+  - name: Stop the tomcat server
+    shell: "./catalina.sh stop"
+    args:
+      chdir: "/home/ec2-user/tomcat/bin"
+    environment:
+       - JAVA_HOME: "/home/ec2-user/java"
+    tags:
+      - never
+      - stop-tomcat
+      - delete-all
+
+  - name: Delete the tomcat server and setup dirs
+    file:
+        path: "{{ item }}"
+        state: absent
+    with_items:
+        - "/home/ec2-user/tomcat"
+        - "/home/ec2-user/setup"
+        - "/home/ec2-user/java"
+    tags:
+      - never
+      - delete-tomcat
+      - delete-all
+
+

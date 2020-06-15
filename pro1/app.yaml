@@ -1,0 +1,48 @@
+---
+- hosts: appserver
+  tasks:
+    - name: Create the folders for Java and Tomcat
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "/home/ec2-user/java"
+        - "/home/ec2-user/tomcat"
+        - "/home/ec2-user/setup"
+
+    - name: Download the java and tomcat zips
+      get_url:
+        url: "{{ item }}"
+        dest: "/home/ec2-user/setup"
+      with_items:
+        - "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jre_x64_linux_hotspot_11.0.7_10.tar.gz"
+        - "https://mirrors.estointernet.in/apache/tomcat/tomcat-9/v9.0.36/bin/apache-tomcat-9.0.36.tar.gz"
+
+    - name: Extract the Java zip
+      unarchive:
+        src: "/home/ec2-user/setup/OpenJDK11U-jre_x64_linux_hotspot_11.0.7_10.tar.gz"
+        dest: "/home/ec2-user/java"
+        remote_src: yes
+        extra_opts:
+          - --strip-components=1
+
+    - name: Extract the Tomcat zip
+      unarchive:
+        src: "/home/ec2-user/setup/apache-tomcat-9.0.36.tar.gz"
+        dest: "/home/ec2-user/tomcat"
+        remote_src: yes
+        extra_opts:
+          - --strip-components=1
+
+    - name: Deploying the sample war file
+      copy:
+        src: "files/ravi.war"
+        dest: "/home/ec2-user/tomcat/webapps"
+
+    - name: Starting the Tomcat Server
+      shell: "nohup ./catalina.sh run >> ../logs/ravi.log &"
+      args:
+        chdir: "/home/ec2-user/tomcat/bin"
+      environment:
+        - JAVA_HOME: "/home/ec2-user/java"
+

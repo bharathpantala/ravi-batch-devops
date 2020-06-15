@@ -1,0 +1,40 @@
+---
+- hosts: web
+  become: true
+  vars:
+    pkg_manager: yum
+    pkg_name: nginx
+    http_daemon: nginx
+    doc_root: /usr/share/nginx/html
+
+  tasks:
+    - name: Installing the Apache HTTP server
+      package:
+        name: "{{ item }}"
+        state: present 
+        update_cache: yes
+      with_items:
+         - "{{ pkg_manager }}"
+         - "{{ pkg_name }}"
+      notify:
+        - Start-app
+
+    - name: Copying the Webpages
+      copy:
+        src: "files/index.html"
+        dest: "{{ doc_root }}"
+      notify:
+        - Restart-app
+
+  handlers:
+    - name: Start-app
+      service:
+        name: "{{ http_daemon }}"
+        state: started 
+        enabled: yes
+
+    - name: Restart-app
+      service:
+        name: "{{ http_daemon }}"
+        state: restarted
+

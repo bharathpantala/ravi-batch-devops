@@ -1,0 +1,20 @@
+---
+- hosts: appserver
+  tasks:
+    - name: Stop the tomcat server
+      shell: "./catalina.sh stop"
+      args:
+        chdir: "/home/ec2-user/tomcat/bin"
+      environment:
+        - JAVA_HOME: "/home/ec2-user/java"
+
+    - name: Delete the tomcat server and setup dirs
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/home/ec2-user/tomcat"
+        - "/home/ec2-user/setup"
+        - "/home/ec2-user/java"
+
+
